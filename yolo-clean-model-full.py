@@ -65,7 +65,7 @@ def calculate_pan_angle(x):
     angle_offset = (dx / FRAME_DISPLAY_SIZE[0]) * CAMERA_HORIZONTAL_FOV
     return int(max(0, min(180, 90 + angle_offset)))
 
-def calculate_tilt_angle(distance, min_d=30, max_d=300, min_a=30, max_a=90):
+def calculate_tilt_angle(distance, min_d=30, max_d=300, min_a=30, max_a=120):
     distance = max(min_d, min(distance, max_d))
     ratio = (distance - min_d) / (max_d - min_d)
     angle = max_a - ratio * (max_a - min_a)

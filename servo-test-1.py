@@ -5,7 +5,7 @@ import time
 GPIO.setmode(GPIO.BCM)
 
 # Define the servo control pin
-SERVO_PIN = 17
+SERVO_PIN = 27
 
 # Setup the pin as output
 GPIO.setup(SERVO_PIN, GPIO.OUT)

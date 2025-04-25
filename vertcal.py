@@ -1,14 +1,20 @@
 import cv2
 import time
-import os
-import datetime
 import RPi.GPIO as GPIO
 from picamera2 import Picamera2
 from ultralytics import YOLO
 
+# ======================= GPIO & Servo Setup =======================
+GPIO.setmode(GPIO.BCM)
+
+SERVO_PIN = 27
+GPIO.setup(SERVO_PIN, GPIO.OUT)
+
+pwm = GPIO.PWM(SERVO_PIN, 50)  # 50Hz frequency for servo motors
+pwm.start(0)
 
 # ======================= YOLOv8 & Camera Setup =======================
-model = YOLO("best_new.onnx")  # Replace with your YOLOv8 model path
+model = YOLO("best_new.onnx")  # Replace with your trained YOLOv8 model
 
 picam2 = Picamera2()
 picam2.preview_configuration.main.size = (640, 640)
@@ -27,7 +33,12 @@ def set_angle(angle):
     pwm.ChangeDutyCycle(0)
     print(f"Servo moved to {angle} degrees with duty cycle {duty:.2f}%")
 
-def calculate_vertical_angle_from_height(bbox_height, min_height=50, max_height=500, min_angle=0, max_angle=120):
+def calculate_vertical_angle_from_height(bbox_height, min_height=30, max_height=300, min_angle=30, max_angle=120):
+    """
+    Estimate vertical angle for servo based on bounding box height.
+    Larger bbox -> closer object -> servo tilts upward (higher angle).
+    """
+    # Clamp bounding box height within expected range
     bbox_height = max(min_height, min(bbox_height, max_height))
     ratio = (bbox_height - min_height) / (max_height - min_height)
     angle = max_angle - ratio * (max_angle - min_angle)
@@ -35,6 +46,8 @@ def calculate_vertical_angle_from_height(bbox_height, min_height=50, max_height=
 
 # ======================= Main Loop =======================
 try:
+    last_angle = None
+
     while True:
         frame = picam2.capture_array()
         results = model(frame)
@@ -46,18 +59,20 @@ try:
 
                 if conf > 0.5:
                     bbox_height = y2 - y1
-                    
                     vertical_angle = calculate_vertical_angle_from_height(bbox_height)
-                    #set_angle(vertical_angle, pwm)
 
+                    # Only move servo if angle has changed significantly
+                    if last_angle is None or abs(vertical_angle - last_angle) > 2:
+                        set_angle(vertical_angle)
+                        last_angle = vertical_angle
+
+                    # Draw detection info
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(frame, f"Tilt (Vertical): {vertical_angle}°", (x1, y1 - 20),
+                    cv2.putText(frame, f"Tilt: {vertical_angle}°", (x1, y1 - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
 
                     print(f"Detection Height: {bbox_height}")
                     print(f"Tilt Angle (Vertical): {vertical_angle}°")
-
-                 
 
         cv2.imshow("YOLOv8 Object Detection", frame)
 
@@ -69,5 +84,7 @@ except KeyboardInterrupt:
 
 finally:
     picam2.stop()
+    pwm.stop()
+    GPIO.cleanup()
     cv2.destroyAllWindows()
     print("Resources released.")
