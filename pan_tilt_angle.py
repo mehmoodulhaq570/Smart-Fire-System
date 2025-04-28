@@ -14,7 +14,8 @@ DISPLAY_SIZE = (640, 640)
 
 CAMERA_HORIZONTAL_FOV = 62  # degrees
 CAMERA_VERTICAL_FOV = 60    # degrees
-VERTICAL_OFFSET_CM = 12.7
+VERTICAL_OFFSET_CM = 1.0    # Vertical offset between camera and servo center
+HORIZONTAL_OFFSET_CM = -1.0  # Horizontal offset (can be adjusted in config)
 
 # ===== GPIO Setup =====
 GPIO.setmode(GPIO.BCM)
@@ -43,9 +44,13 @@ def set_servo_angle(angle, pwm):
     time.sleep(0.05)
     pwm.ChangeDutyCycle(0)
 
-def calculate_pan_angle(x):
+def calculate_pan_angle(x, horizontal_offset=HORIZONTAL_OFFSET_CM):
     dx = x - (DISPLAY_SIZE[0] / 2)
     offset = (dx / DISPLAY_SIZE[0]) * CAMERA_HORIZONTAL_FOV
+    
+    # Apply horizontal offset
+    offset += (horizontal_offset / 10)  # Assuming 1 cm horizontal offset corresponds to 10 degrees for simplicity
+    
     return int(np.clip(90 + offset, 0, 180))
 
 def calculate_tilt_angle(y, distance):
@@ -101,7 +106,7 @@ try:
         if fire_detected and best_bbox:
             cx, cy, bbox_width = best_bbox
             distance = estimate_distance(bbox_width)
-            pan_angle = calculate_pan_angle(cx)
+            pan_angle = calculate_pan_angle(cx)  # Now includes horizontal offset
             tilt_angle = calculate_tilt_angle(cy, distance)
 
             set_servo_angle(180 - pan_angle, pwm_pan)  # 180 - pan to match servo mounting
