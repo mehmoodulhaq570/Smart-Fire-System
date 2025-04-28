@@ -4,7 +4,6 @@
 # Activate motor + buzzer if any (gas leak / flame / camera fire) is detected.
 # The camera center and the servo center (rotation point) are vertically offset by 12.7 cm.
 
-
 import os
 import cv2
 import time
@@ -16,7 +15,7 @@ from picamera2 import Picamera2
 from ultralytics import YOLO
 from RPLCD.i2c import CharLCD
 
-# ============ Configuration =============
+# ============ Configuration ============= 
 SERVO_PIN_PAN = 17
 SERVO_PIN_TILT = 27
 MOTOR_ENA = 18
@@ -36,7 +35,7 @@ CAMERA_VERTICAL_FOV = 60  # degrees
 
 MOTOR_ACTIVATION_DURATION = 5  # seconds
 
-# ============ GPIO Setup =============
+# ============ GPIO Setup ============= 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup([SERVO_PIN_PAN, SERVO_PIN_TILT, MOTOR_ENA, MOTOR_IN1, MOTOR_IN2, BUZZER_PIN], GPIO.OUT)
 GPIO.setup([MQ5_PIN, FLAME_PIN], GPIO.IN)
@@ -51,7 +50,7 @@ pwm_motor.start(0)
 # LCD Setup
 lcd = CharLCD('PCF8574', 0x27)  # Adjust I2C address if needed
 
-# ============ Camera Setup ============
+# ============ Camera Setup ============ 
 picam2 = Picamera2()
 picam2.preview_configuration.main.size = FRAME_SIZE
 picam2.preview_configuration.main.format = "RGB888"
@@ -59,10 +58,10 @@ picam2.preview_configuration.align()
 picam2.configure("preview")
 picam2.start()
 
-# ============ YOLOv11 Load ============
+# ============ YOLOv11 Load ============ 
 model = YOLO("best_new.onnx")
 
-# ============ Globals ============
+# ============ Globals ============ 
 frame_queue = queue.Queue(maxsize=2)
 running = True
 fire_detected = False
@@ -70,7 +69,7 @@ gas_detected = False
 flame_detected = False
 activation_end_time = 0
 
-# ============ Helper Functions ============
+# ============ Helper Functions ============ 
 def set_servo_angle(angle, pwm):
     duty = 2.5 + (angle / 18)
     pwm.ChangeDutyCycle(max(2.5, min(duty, 12.5)))
@@ -82,10 +81,18 @@ def calculate_pan_angle(x):
     offset = (dx / DISPLAY_SIZE[0]) * CAMERA_HORIZONTAL_FOV
     return int(np.clip(90 + offset, 0, 180))
 
-def calculate_tilt_angle(y):
+def calculate_tilt_angle(y, distance):
     dy = y - (DISPLAY_SIZE[1] / 2)
-    offset = (dy / DISPLAY_SIZE[1]) * CAMERA_VERTICAL_FOV
-    return int(np.clip(90 + offset, 0, 180))
+    
+    # Convert pixel displacement to vertical angle
+    pixel_angle = (dy / DISPLAY_SIZE[1]) * CAMERA_VERTICAL_FOV
+    
+    # Adjust for 12.7 cm vertical offset
+    vertical_offset_angle = np.degrees(np.arctan(12.7 / distance))
+    
+    total_angle = pixel_angle + vertical_offset_angle
+    
+    return int(np.clip(90 + total_angle, 0, 180))
 
 def estimate_distance(bbox_width):
     if bbox_width == 0:
@@ -110,7 +117,7 @@ def deactivate_motor_and_buzzer():
         GPIO.output(MOTOR_IN2, GPIO.LOW)
         GPIO.output(BUZZER_PIN, GPIO.LOW)
 
-# ============ Threads ============
+# ============ Threads ============ 
 def capture_thread():
     while running:
         frame = picam2.capture_array()
@@ -155,8 +162,8 @@ def processing_thread():
         if fire_detected and best_bbox:
             cx, cy, bbox_width = best_bbox
             pan_angle = calculate_pan_angle(cx)
-            tilt_angle = calculate_tilt_angle(cy)
             distance = estimate_distance(bbox_width)
+            tilt_angle = calculate_tilt_angle(cy, distance)
 
             set_servo_angle(180 - pan_angle, pwm_pan)
             set_servo_angle(tilt_angle, pwm_tilt)
@@ -211,7 +218,7 @@ def sensor_thread():
 
         time.sleep(1)
 
-# ============ Start Threads ============
+# ============ Start Threads ============ 
 threads = [
     threading.Thread(target=capture_thread, daemon=True),
     threading.Thread(target=processing_thread, daemon=True),
@@ -221,14 +228,13 @@ threads = [
 for t in threads:
     t.start()
 
-# ============ Main Program ============
+# ============ Main Program ============ 
 try:
     while running:
         time.sleep(1)
 except KeyboardInterrupt:
     print("\n🔴 Interrupted by user!")
-    
-    
+
 finally:
     running = False
     time.sleep(2)  # Allow threads to finish
