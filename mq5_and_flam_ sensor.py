@@ -3,8 +3,8 @@ import time
 from RPLCD.i2c import CharLCD
 
 # Pin Configuration
-mq5_pin = 16
-flame_pin = 26
+mq5_pin = 26
+flame_pin = 16
 
 # LCD Configuration
 lcd = CharLCD('PCF8574', 0x27)  # I2C address 0x27 usually, check yours with sudo i2cdetect -y 1
