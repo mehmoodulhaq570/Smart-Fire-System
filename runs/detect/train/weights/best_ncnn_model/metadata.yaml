@@ -1,0 +1,18 @@
+description: Ultralytics YOLO11n model trained on /kaggle/working/fire-dataset/Fire-Dataset/data.yaml
+author: Ultralytics
+date: '2025-04-23T06:35:38.842955'
+version: 8.3.114
+license: AGPL-3.0 License (https://ultralytics.com/license)
+docs: https://docs.ultralytics.com
+stride: 32
+task: detect
+batch: 1
+imgsz:
+- 640
+- 640
+names:
+  0: fire
+args:
+  batch: 1
+  half: false
+channels: 3
